@@ -1,0 +1,82 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: <namespace>-fix
+  namespace: <namespace>-fix
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      namespacefix: <namespace>
+  template:
+    metadata:
+      labels:
+        namespacefix: <namespace>
+    spec:
+      containers:
+      - name: moveworks-fix
+        image: docker.io/tjbredow/egressip-fix
+        env:
+          - name: ROUTE_TABLE
+            value: <route_table>
+          - name: TARGET_NAMESPACE
+            value: <namespace>
+          - name: KUBE_ENV
+            value: <default>
+        resources:
+          requests:
+            memory: 128Mi
+            cpu: 200m
+          limits:
+            memory: 256Mi
+            cpu: 400m
+      serviceAccountName: egressip-nncp-editor
+---
+kind: ServiceAccount
+apiVersion: v1
+metadata:
+  name: egressip-nncp-editor
+  namespace: egressip-fix
+---
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: egressip-fix-binding-nncp-crb
+subjects:
+  - kind: ServiceAccount
+    name: egressip-nncp-editor
+    namespace: egressip-fix
+roleRef:
+  apiGroup: rbac.authorization.k8s.io/v1
+  kind: ClusterRole
+  name: NodeNetworkConfigurationPolicy-Admin
+---
+kind: RoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: egressip-nncp-<namespace>
+  namespace: <namespace>
+subjects:
+  - kind: ServiceAccount
+    name: egressip-nncp-editor
+    namespace: egressip-fix
+roleRef:
+  apiGroup: rbac.authorization.k8s.io/v1
+  kind: Role
+  name: read-pod-<namespace>
+---
+kind: Role
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: read-pod-<namespace>
+  namespace: <namespace>
+rules:
+  - verbs:
+    - get
+    - watch
+    - list
+    apiGroups:
+      - ''
+    resources:
+      - pods
